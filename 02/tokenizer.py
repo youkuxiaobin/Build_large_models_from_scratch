@@ -1,34 +1,50 @@
 import urllib.request
-import re
-
-class SimpleTokenizerV1:
-    def __init__(self):
-        url = ("https://raw.githubusercontent.com/rasbt/LLMs-from-scratch/main/ch02/01_main-chapter-code/the-verdict.txt")
-        file_path = "the-verdict.txt"
-        urllib.request.urlretrieve(url, file_path)
-
-        with open(file_path, "r", encoding="utf-8") as f:
-            raw_text = f.read()
-        result = re.split(r'([,.:;?_!"()\']|--|\s)', raw_text)
-        preprocessed = [item.strip() for item in result if item.strip()]
-
-        all_words = sorted(set(preprocessed))
-        all_words.extend(["<|endoftext|>", "<|unk|>"])
-        self.str2id = {token:integer for integer, token in enumerate(all_words)}
-        self.id2str = {integer:token for integer, token in enumerate(all_words)}
-    def encode(self,text):
-        preprocessed = re.split(r'([,.:;?_!"()\']|--|\s)', text)
-        preprocessed = [item.strip() if item in self.str2id else "<|unk|>" for item in preprocessed if item.strip()]
-        return [self.str2id[s] for s in preprocessed]
-    def decode(self, ids):
-        return " ".join([self.id2str[i] for i in ids])
+import torch
+import tiktoken
+class SimpleTokenizerV1(torch.utils.data.Dataset):
+    def __init__(self, txt, tokenizer, max_length, stride):
+        self.input_ids = []
+        self.target_ids =  []
+        
+        tokens_ids = tokenizer.encode(txt)
+        for i in range(0, len(tokens_ids)-max_length, stride):
+            self.input_ids.append(torch.tensor(tokens_ids[i: i+max_length]))
+            self.target_ids.append(torch.tensor(tokens_ids[i+1: i+max_length+1]))
+            
+    def __getitem__(self, idx):
+        return self.input_ids[idx], self.target_ids[idx]
     
-text = """It's the last he painted, you know, Mrs Gisburn said with pardonable pride."""
-tokenizer = SimpleTokenizerV1()
-print(tokenizer.encode(text))
+    def __len__(self):
+        return len(self.input_ids)        
 
-text1 = "Hello, do you like tea?"
-text2 = "In the sunlit terraces of the palace"
-text = "<|endoftext|> ". join((text1, text2))
-print(tokenizer.encode(text))    
-print(tokenizer.decode(tokenizer.encode(text)))
+def create_dataloader_v1(txt, max_length=4, stride=1, shuffle=False, batch_size=1):
+    tokenizer = tiktoken.get_encoding("gpt2")
+    dataset = SimpleTokenizerV1(txt, tokenizer, max_length=max_length, stride=stride)
+    
+    dataloader = torch.utils.data.DataLoader(
+        dataset=dataset,
+        shuffle=shuffle,
+        batch_size=batch_size,
+        drop_last=True,
+    )
+    return dataloader
+if __name__ == "__main__":
+    file_path = "the-verdct.txt"
+    url = "https://raw.githubusercontent.com/rasbt/LLMs-from-scratch/main/ch02/01_main-chapter-code/the-verdict.txt"
+    urllib.request.urlretrieve(url, file_path)
+    
+    with open(file_path, "r", encoding="utf-8") as f:
+        raw_text = f.read()
+    max_length = 4
+    dataloader = create_dataloader_v1(raw_text, max_length=max_length, stride=1, shuffle=False)
+    
+    data_iter = iter(dataloader)
+    inputs, target = next(data_iter)
+    print(inputs, target)
+    
+    emb_layer = torch.nn.Embedding(num_embeddings=50257, embedding_dim=256)
+    print(emb_layer(inputs).shape)
+    pos_emb_layer = torch.nn.Embedding(num_embeddings=max_length, embedding_dim=256)
+    pos_embed = pos_emb_layer(torch.arange(max_length))
+    print(pos_embed.shape)
+    
