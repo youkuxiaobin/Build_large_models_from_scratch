@@ -2,7 +2,7 @@ import torch
 import math
 import tiktoken
 
-class MutiHeadAttentionV1(torch.nn.Module):
+class MultiHeadAttentionV1(torch.nn.Module):
     def __init__(self, d_in, d_out, num_head, context_length, dropout,  bias = False):
         super().__init__()
         
@@ -71,7 +71,7 @@ class FeedForward(torch.nn.Module):
 class TransformerBlock(torch.nn.Module):
     def __init__(self, cfg):
         super().__init__()
-        self.att = MutiHeadAttentionV1(d_in = cfg["n_embd"],
+        self.att = MultiHeadAttentionV1(d_in = cfg["n_embd"],
                                        d_out = cfg["n_embd"],
                                        num_head = cfg["n_head"],
                                        context_length = cfg["context_length"],
