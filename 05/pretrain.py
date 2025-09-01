@@ -183,3 +183,5 @@ if __name__ == "__main__":
     epochs_tensor = torch.linspace(0, num_epoches, len(train_losses))
     plot_losses(epochs_tensor, tokens_seen, train_losses, val_losses)
     
+    torch.save(model.state_dict(), "model.pth")
+    
